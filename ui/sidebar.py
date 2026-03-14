@@ -23,7 +23,7 @@ class Sidebar(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(280)
+        self.setFixedWidth(310)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self._event_id_map = {}   # list row index → db event id (for undo highlight)
         self._build_ui()
@@ -84,18 +84,46 @@ class Sidebar(QWidget):
         )
         layout.addWidget(self.calib_label)
 
-        # ── Shortcut hint ───────────────────────────────────────────────
-        hints = QLabel(
-            "P Pass  S Shot  T Tackle\n"
-            "D Dribble  G Goal  C Cross  F Foul\n"
-            "SPACE Play/Pause  ←/→ Seek 5s\n"
-            "Ctrl+C Calibrate  Ctrl+T Track player\n"
-            "Ctrl+Shift+T Stop tracking\n"
-            "H Heatmap  E Export  Ctrl+Z Undo"
+        # ── Shortcut hints ──────────────────────────────────────────────
+        hints_group = QGroupBox("Keyboard Shortcuts")
+        hints_group.setStyleSheet(
+            "QGroupBox { font-size: 12px; font-weight: bold; color: #e0e0e0; "
+            "border: 1px solid #555; border-radius: 4px; margin-top: 6px; padding-top: 4px; }"
+            "QGroupBox::title { subcontrol-origin: margin; left: 8px; }"
         )
-        hints.setStyleSheet("font-size: 10px; color: #888888;")
-        hints.setAlignment(Qt.AlignCenter)
-        layout.addWidget(hints)
+        hints_layout = QVBoxLayout(hints_group)
+        hints_layout.setSpacing(2)
+        hints_layout.setContentsMargins(6, 4, 6, 4)
+
+        shortcut_rows = [
+            ("[P]  Pass",           "#4CAF50"),
+            ("[S]  Shot",           "#F44336"),
+            ("[T]  Tackle",         "#2196F3"),
+            ("[D]  Dribble",        "#FF9800"),
+            ("[G]  Goal",           "#9C27B0"),
+            ("[C]  Cross",          "#00BCD4"),
+            ("[F]  Foul",           "#FF5722"),
+            ("─────────────",       "#444444"),
+            ("[Space]  Play / Pause",   "#e0e0e0"),
+            ("[←/→]  Seek ±5s",        "#e0e0e0"),
+            ("[Shift+←/→]  Step frame","e0e0e0"),
+            ("─────────────",       "#444444"),
+            ("[Ctrl+C]  Calibrate",     "#00E5FF"),
+            ("[Ctrl+T]  Track player",  "#00E5FF"),
+            ("[Ctrl+Shift+T]  Stop tracking", "#00E5FF"),
+            ("─────────────",       "#444444"),
+            ("[H]  Heatmap",        "#e0e0e0"),
+            ("[E]  Export CSV",     "#e0e0e0"),
+            ("[Ctrl+Z]  Undo",      "#e0e0e0"),
+            ("[Q]  Quit",           "#e0e0e0"),
+        ]
+
+        for text, color in shortcut_rows:
+            row = QLabel(text)
+            row.setStyleSheet(f"font-size: 12px; color: {color}; font-family: monospace;")
+            hints_layout.addWidget(row)
+
+        layout.addWidget(hints_group)
 
     # ── Public slots ───────────────────────────────────────────────────────
 
