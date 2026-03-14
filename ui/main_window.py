@@ -3,7 +3,8 @@ import numpy as np
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QFileDialog,
     QMenuBar, QAction, QInputDialog, QMessageBox,
-    QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QLabel
+    QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QLabel,
+    QListWidget, QListWidgetItem, QVBoxLayout, QComboBox, QPushButton
 )
 from PyQt5.QtCore import Qt, pyqtSlot
 
@@ -76,6 +77,11 @@ class MainWindow(QMainWindow):
         act_new.triggered.connect(self._new_match_dialog)
         file_menu.addAction(act_new)
 
+        act_load = QAction("Load Match...", self)
+        act_load.setShortcut("Ctrl+L")
+        act_load.triggered.connect(self._load_match_dialog)
+        file_menu.addAction(act_load)
+
         act_open = QAction("Open Video...", self)
         act_open.setShortcut("Ctrl+O")
         act_open.triggered.connect(self._open_video_dialog)
@@ -103,6 +109,10 @@ class MainWindow(QMainWindow):
         act_passmap = QAction("Pass Map (M)", self)
         act_passmap.triggered.connect(self._show_pass_map)
         analytics_menu.addAction(act_passmap)
+
+        act_shotmap = QAction("Shot Map (N)", self)
+        act_shotmap.triggered.connect(self._show_shot_map)
+        analytics_menu.addAction(act_shotmap)
 
         file_menu.addSeparator()
 
@@ -215,6 +225,11 @@ class MainWindow(QMainWindow):
             self._show_pass_map()
             return
 
+        # N — shot map
+        if key == Qt.Key_N and not mods:
+            self._show_shot_map()
+            return
+
         # E — export CSV
         if key == Qt.Key_E and not mods:
             self._export_csv()
@@ -235,12 +250,36 @@ class MainWindow(QMainWindow):
                     "⚠  No pitch location — click on the video first, then press the key.", 4000
                 )
                 return
-            self.event_tagger.tag_event(KEY_EVENT_MAP[key])
+            event_type = KEY_EVENT_MAP[key]
+            outcome = None
+            if event_type in ("pass", "shot", "cross"):
+                outcome = self._ask_outcome(event_type)
+            self.event_tagger.tag_event(event_type, outcome)
             return
 
         super().keyPressEvent(event)
 
     # ── Dialogs & actions ─────────────────────────────────────────────────
+
+    def _load_match_dialog(self):
+        matches = self.database.get_matches()
+        if not matches:
+            QMessageBox.information(self, "No Matches", "No saved matches found. Create one first.")
+            return
+        dlg = LoadMatchDialog(matches, self)
+        if dlg.exec_() == QDialog.Accepted:
+            match = dlg.selected_match()
+            if match:
+                self._current_match_id = match["id"]
+                self.event_tagger.set_active_match(match["id"])
+                self.sidebar.set_match_info(match["name"], match["home_team"], match["away_team"])
+                players = self.database.get_players(match["id"])
+                self.sidebar.load_players(players)
+                events = self.database.get_all_events(match["id"])
+                for e in reversed(events):
+                    self.sidebar.add_event(e)
+                self.statusBar().showMessage(f"Loaded: {match['name']}")
+        self.setFocus()
 
     def _new_match_dialog(self):
         dlg = NewMatchDialog(self)
@@ -343,6 +382,33 @@ class MainWindow(QMainWindow):
             gen.show_pass_map(self._current_match_id, player_id)
         except Exception as e:
             QMessageBox.critical(self, "Pass Map Error", str(e))
+        self.setFocus()
+
+    def _ask_outcome(self, event_type: str):
+        outcomes = {
+            "pass":  ["complete", "incomplete"],
+            "shot":  ["on target", "off target", "blocked"],
+            "cross": ["complete", "incomplete"],
+        }
+        choices = outcomes.get(event_type, [])
+        if not choices:
+            return None
+        item, ok = QInputDialog.getItem(
+            self, f"{event_type.title()} Outcome", "Outcome:", choices, 0, False
+        )
+        return item if ok else None
+
+    def _show_shot_map(self):
+        if self._current_match_id is None:
+            QMessageBox.warning(self, "No Match", "No active match.")
+            return
+        try:
+            from data.heatmap import HeatmapGenerator
+            player_id = self.event_tagger._active_player_id
+            gen = HeatmapGenerator(self.database)
+            gen.show_shot_map(self._current_match_id, player_id)
+        except Exception as e:
+            QMessageBox.critical(self, "Shot Map Error", str(e))
         self.setFocus()
 
     def _show_heatmap(self):
@@ -473,6 +539,34 @@ class NewMatchDialog(QDialog):
 
     def values(self):
         return self._name.text(), self._home.text(), self._away.text()
+
+
+class LoadMatchDialog(QDialog):
+    def __init__(self, matches: list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Load Match")
+        self.setMinimumWidth(400)
+        self._matches = matches
+        layout = QVBoxLayout(self)
+
+        self._list = QListWidget()
+        self._list.setStyleSheet("font-size: 13px;")
+        for m in matches:
+            item = QListWidgetItem(f"{m['name']}  —  {m['home_team']} vs {m['away_team']}  ({m['date']})")
+            item.setData(Qt.UserRole, m)
+            self._list.addItem(item)
+        self._list.setCurrentRow(0)
+        self._list.itemDoubleClicked.connect(self.accept)
+        layout.addWidget(self._list)
+
+        btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        layout.addWidget(btns)
+
+    def selected_match(self):
+        item = self._list.currentItem()
+        return item.data(Qt.UserRole) if item else None
 
 
 class AddPlayerDialog(QDialog):

@@ -66,6 +66,53 @@ class HeatmapGenerator:
         dlg.exec_()
         plt.close(fig)
 
+    def show_shot_map(self, match_id, player_id=None):
+        title = f"Player {player_id} — Shot Map" if player_id else "All Players — Shot Map"
+        fig = self._render_shot_map(match_id, player_id, title)
+
+        dlg = QDialog()
+        dlg.setWindowTitle(title)
+        dlg.resize(800, 520)
+        layout = QVBoxLayout(dlg)
+        canvas = FigureCanvas(fig)
+        layout.addWidget(canvas)
+        dlg.exec_()
+        plt.close(fig)
+
+    def _render_shot_map(self, match_id, player_id=None, title="Shot Map"):
+        if player_id:
+            events = [e for e in self.db.get_all_events(match_id)
+                      if e["event_type"] in ("shot", "goal") and e["player_id"] == player_id]
+        else:
+            events = [e for e in self.db.get_all_events(match_id)
+                      if e["event_type"] in ("shot", "goal")]
+
+        pitch = Pitch(
+            pitch_type="custom",
+            pitch_length=120, pitch_width=80,
+            pitch_color="#1a1a1a", line_color="#cccccc",
+        )
+        fig, ax = pitch.draw(figsize=(10, 6.5))
+        fig.patch.set_facecolor("#1a1a1a")
+
+        shots = [e for e in events if e["event_type"] == "shot" and e.get("pitch_x") is not None]
+        goals = [e for e in events if e["event_type"] == "goal" and e.get("pitch_x") is not None]
+
+        if shots:
+            pitch.scatter(
+                [e["pitch_x"] for e in shots], [e["pitch_y"] for e in shots],
+                ax=ax, s=120, color="#F44336", alpha=0.8, zorder=3, label="Shot"
+            )
+        if goals:
+            pitch.scatter(
+                [e["pitch_x"] for e in goals], [e["pitch_y"] for e in goals],
+                ax=ax, s=180, color="#FFD700", marker="*", zorder=4, label="Goal"
+            )
+
+        ax.legend(facecolor="#2a2a2a", labelcolor="white", loc="upper left")
+        ax.set_title(title, color="white", fontsize=13, pad=10)
+        return fig
+
     def generate_pass_map(self, match_id, player_id=None):
         """Render pass origin → destination arrows (requires video_x/y pairs)."""
         if player_id:
