@@ -52,6 +52,20 @@ class HeatmapGenerator:
         ax.set_title(title, color="white", fontsize=13, pad=10)
         return fig
 
+    def show_pass_map(self, match_id, player_id=None):
+        player_id = player_id or None
+        title = f"Player {player_id} — Pass Map" if player_id else "All Players — Pass Map"
+        fig = self.generate_pass_map(match_id, player_id)
+
+        dlg = QDialog()
+        dlg.setWindowTitle(title)
+        dlg.resize(800, 520)
+        layout = QVBoxLayout(dlg)
+        canvas = FigureCanvas(fig)
+        layout.addWidget(canvas)
+        dlg.exec_()
+        plt.close(fig)
+
     def generate_pass_map(self, match_id, player_id=None):
         """Render pass origin → destination arrows (requires video_x/y pairs)."""
         if player_id:

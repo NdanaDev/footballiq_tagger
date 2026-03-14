@@ -113,7 +113,9 @@ class Sidebar(QWidget):
             ("[Ctrl+Shift+T]  Stop tracking", "#00E5FF"),
             ("─────────────",       "#444444"),
             ("[H]  Heatmap",        "#e0e0e0"),
+            ("[M]  Pass Map",       "#e0e0e0"),
             ("[E]  Export CSV",     "#e0e0e0"),
+            ("[Ctrl+J]  Export JSON", "#e0e0e0"),
             ("[Ctrl+Z]  Undo",      "#e0e0e0"),
             ("[Q]  Quit",           "#e0e0e0"),
         ]

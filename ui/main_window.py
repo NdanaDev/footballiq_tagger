@@ -87,6 +87,23 @@ class MainWindow(QMainWindow):
         act_export.triggered.connect(self._export_csv)
         file_menu.addAction(act_export)
 
+        act_export_json = QAction("Export JSON (Ctrl+J)", self)
+        act_export_json.setShortcut("Ctrl+J")
+        act_export_json.triggered.connect(self._export_json)
+        file_menu.addAction(act_export_json)
+
+        file_menu.addSeparator()
+
+        analytics_menu = mb.addMenu("Analytics")
+
+        act_heatmap = QAction("Position Heatmap (H)", self)
+        act_heatmap.triggered.connect(self._show_heatmap)
+        analytics_menu.addAction(act_heatmap)
+
+        act_passmap = QAction("Pass Map (M)", self)
+        act_passmap.triggered.connect(self._show_pass_map)
+        analytics_menu.addAction(act_passmap)
+
         file_menu.addSeparator()
 
         act_quit = QAction("Quit", self)
@@ -193,6 +210,11 @@ class MainWindow(QMainWindow):
             self._show_heatmap()
             return
 
+        # M — pass map
+        if key == Qt.Key_M and not mods:
+            self._show_pass_map()
+            return
+
         # E — export CSV
         if key == Qt.Key_E and not mods:
             self._export_csv()
@@ -207,6 +229,11 @@ class MainWindow(QMainWindow):
         if key in KEY_EVENT_MAP and not mods:
             if self._current_match_id is None:
                 QMessageBox.warning(self, "No Match", "Create a match first (File → New Match).")
+                return
+            if self.pitch_mapper.is_calibrated and self.event_tagger._click_x is None:
+                self.statusBar().showMessage(
+                    "⚠  No pitch location — click on the video first, then press the key.", 4000
+                )
                 return
             self.event_tagger.tag_event(KEY_EVENT_MAP[key])
             return
@@ -282,6 +309,40 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "Export", f"Exported {len(df)} events to:\n{path}")
             except Exception as e:
                 QMessageBox.critical(self, "Export Error", str(e))
+        self.setFocus()
+
+    def _export_json(self):
+        if self._current_match_id is None:
+            QMessageBox.warning(self, "No Match", "No active match to export.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export JSON", "events.json", "JSON Files (*.json)"
+        )
+        if path:
+            try:
+                import json
+                events = self.database.get_all_events(self._current_match_id)
+                if not events:
+                    QMessageBox.information(self, "Export", "No events to export.")
+                    return
+                with open(path, "w") as f:
+                    json.dump(events, f, indent=2, default=str)
+                QMessageBox.information(self, "Export", f"Exported {len(events)} events to:\n{path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", str(e))
+        self.setFocus()
+
+    def _show_pass_map(self):
+        if self._current_match_id is None:
+            QMessageBox.warning(self, "No Match", "No active match.")
+            return
+        try:
+            from data.heatmap import HeatmapGenerator
+            player_id = self.event_tagger._active_player_id
+            gen = HeatmapGenerator(self.database)
+            gen.show_pass_map(self._current_match_id, player_id)
+        except Exception as e:
+            QMessageBox.critical(self, "Pass Map Error", str(e))
         self.setFocus()
 
     def _show_heatmap(self):
