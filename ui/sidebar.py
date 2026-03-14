@@ -66,11 +66,31 @@ class Sidebar(QWidget):
         lg_layout.addWidget(self.event_list)
         layout.addWidget(log_group, stretch=1)
 
+        # ── Tracking status ─────────────────────────────────────────────
+        self.tracking_label = QLabel("Tracking: None")
+        self.tracking_label.setAlignment(Qt.AlignCenter)
+        self.tracking_label.setStyleSheet(
+            "font-size: 11px; color: #888888; "
+            "border: 1px solid #444444; border-radius: 3px; padding: 2px 4px;"
+        )
+        layout.addWidget(self.tracking_label)
+
+        # ── Calibration status ──────────────────────────────────────────
+        self.calib_label = QLabel("Pitch: Not calibrated")
+        self.calib_label.setAlignment(Qt.AlignCenter)
+        self.calib_label.setStyleSheet(
+            "font-size: 11px; color: #FF5722; "
+            "border: 1px solid #FF5722; border-radius: 3px; padding: 2px 4px;"
+        )
+        layout.addWidget(self.calib_label)
+
         # ── Shortcut hint ───────────────────────────────────────────────
         hints = QLabel(
             "P Pass  S Shot  T Tackle\n"
             "D Dribble  G Goal  C Cross  F Foul\n"
             "SPACE Play/Pause  ←/→ Seek 5s\n"
+            "Ctrl+C Calibrate  Ctrl+T Track player\n"
+            "Ctrl+Shift+T Stop tracking\n"
             "H Heatmap  E Export  Ctrl+Z Undo"
         )
         hints.setStyleSheet("font-size: 10px; color: #888888;")
@@ -121,6 +141,35 @@ class Sidebar(QWidget):
         for p in players:
             label = f"#{p['number']} {p['name']} ({p['team']})"
             self.player_combo.addItem(label, p["id"])
+
+    def set_tracking_status(self, player_ids: list):
+        if not player_ids:
+            self.tracking_label.setText("Tracking: None")
+            self.tracking_label.setStyleSheet(
+                "font-size: 11px; color: #888888; "
+                "border: 1px solid #444444; border-radius: 3px; padding: 2px 4px;"
+            )
+        else:
+            ids_str = ", ".join(f"ID {pid}" for pid in player_ids)
+            self.tracking_label.setText(f"Tracking: {ids_str}")
+            self.tracking_label.setStyleSheet(
+                "font-size: 11px; color: #00E5FF; "
+                "border: 1px solid #00E5FF; border-radius: 3px; padding: 2px 4px;"
+            )
+
+    def set_calibration_status(self, calibrated: bool):
+        if calibrated:
+            self.calib_label.setText("Pitch: Calibrated")
+            self.calib_label.setStyleSheet(
+                "font-size: 11px; color: #4CAF50; "
+                "border: 1px solid #4CAF50; border-radius: 3px; padding: 2px 4px;"
+            )
+        else:
+            self.calib_label.setText("Pitch: Not calibrated")
+            self.calib_label.setStyleSheet(
+                "font-size: 11px; color: #FF5722; "
+                "border: 1px solid #FF5722; border-radius: 3px; padding: 2px 4px;"
+            )
 
     # ── Internal ───────────────────────────────────────────────────────────
 
