@@ -24,6 +24,14 @@ class AutoTagger:
                 "ultralytics is not installed.\n"
                 "Run:  pip install ultralytics"
             )
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load AI model: {e}\n\n"
+                "This is usually a missing Visual C++ redistributable or an\n"
+                "incompatible PyTorch build.  Fix it by running:\n\n"
+                "  pip uninstall torch torchvision -y\n"
+                "  pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu"
+            )
 
     def detect(self, frame):
         """

@@ -449,7 +449,11 @@ class MainWindow(QMainWindow):
     def _on_frame_changed(self, frame):
         self._last_frame = frame
         if not self.player_tracker.is_empty:
-            boxes = self.player_tracker.update(frame)
+            try:
+                boxes = self.player_tracker.update(frame)
+            except Exception as e:
+                self.statusBar().showMessage(f"Tracking error: {e}", 3000)
+                return
             self.video_widget.update_tracking_boxes(boxes, self._tracking_labels)
             self._tracking_frame_count += 1
             if self._tracking_frame_count % 5 == 0:
@@ -459,17 +463,20 @@ class MainWindow(QMainWindow):
         if self._current_match_id is None:
             return
         for player_id, (x, y, w, h) in boxes.items():
-            pitch_x, pitch_y = self.pitch_mapper.transform_bbox_center(x, y, w, h)
-            self.database.save_tracking_point(
-                player_id=player_id,
-                pitch_x=pitch_x,
-                pitch_y=pitch_y,
-                match_id=self._current_match_id,
-                frame_number=self.video_player.current_frame_number,
-                timestamp=self.video_player.current_timestamp,
-                video_x=x + w / 2,
-                video_y=y + h / 2,
-            )
+            try:
+                pitch_x, pitch_y = self.pitch_mapper.transform_bbox_center(x, y, w, h)
+                self.database.save_tracking_point(
+                    player_id=player_id,
+                    pitch_x=pitch_x,
+                    pitch_y=pitch_y,
+                    match_id=self._current_match_id,
+                    frame_number=self.video_player.current_frame_number,
+                    timestamp=self.video_player.current_timestamp,
+                    video_x=x + w / 2,
+                    video_y=y + h / 2,
+                )
+            except Exception:
+                pass
 
     def _start_bbox_draw(self):
         player_id = self.event_tagger._active_player_id
