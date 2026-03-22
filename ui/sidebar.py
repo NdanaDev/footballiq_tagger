@@ -115,6 +115,7 @@ class Sidebar(QWidget):
             ("[H]  Heatmap",        "#e0e0e0"),
             ("[M]  Pass Map",       "#e0e0e0"),
             ("[N]  Shot Map",       "#e0e0e0"),
+            ("[Ctrl+A]  AI Detect", "#FFD700"),
             ("[E]  Export CSV",     "#e0e0e0"),
             ("[Ctrl+J]  Export JSON", "#e0e0e0"),
             ("[Ctrl+Z]  Undo",      "#e0e0e0"),

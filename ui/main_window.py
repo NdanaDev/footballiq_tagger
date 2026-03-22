@@ -12,6 +12,7 @@ from core.video_player   import VideoPlayer
 from core.pitch_mapper   import PitchMapper
 from core.event_tagger   import EventTagger
 from core.player_tracker import PlayerTracker
+from core.auto_tagger    import AutoTagger
 from data.database       import Database
 from ui.video_widget     import VideoWidget
 from ui.sidebar          import Sidebar
@@ -44,6 +45,7 @@ class MainWindow(QMainWindow):
         self._current_match_id    = None
         self._calib_points        = []   # accumulates (frame_x, frame_y) during calibration
         self.player_tracker       = PlayerTracker()
+        self.auto_tagger          = AutoTagger()
         self._last_frame          = None
         self._tracking_labels     = {}
         self._tracking_frame_count = 0
@@ -114,6 +116,13 @@ class MainWindow(QMainWindow):
         act_shotmap.triggered.connect(self._show_shot_map)
         analytics_menu.addAction(act_shotmap)
 
+        analytics_menu.addSeparator()
+
+        act_ai = QAction("AI Detect Players/Ball (Ctrl+A)", self)
+        act_ai.setShortcut("Ctrl+A")
+        act_ai.triggered.connect(self._run_auto_detect)
+        analytics_menu.addAction(act_ai)
+
         file_menu.addSeparator()
 
         act_quit = QAction("Quit", self)
@@ -142,9 +151,12 @@ class MainWindow(QMainWindow):
         # VideoPlayer → frame cache + tracker update
         self.video_player.frame_changed.connect(self._on_frame_changed)
 
-        # EventTagger → Sidebar (new event / undo)
+        # EventTagger → Sidebar (new event / undo / destination)
         self.event_tagger.event_tagged.connect(self.sidebar.add_event)
+        self.event_tagger.event_tagged.connect(lambda _: self.video_widget.clear_detections())
         self.event_tagger.event_untagged.connect(self.sidebar.remove_event)
+        self.event_tagger.destination_awaiting.connect(self._on_destination_awaiting)
+        self.event_tagger.destination_set.connect(self._on_destination_set)
 
         # Sidebar → EventTagger (player selection)
         self.sidebar.player_selected.connect(self.event_tagger.set_active_player)
@@ -178,7 +190,7 @@ class MainWindow(QMainWindow):
             self._start_bbox_draw()
             return
 
-        # Esc — cancel calibration or bbox draw
+        # Esc — cancel calibration, bbox draw, or destination tagging
         if key == Qt.Key_Escape:
             if self.video_widget._calibration_mode:
                 self.video_widget.set_calibration_mode(False)
@@ -188,6 +200,10 @@ class MainWindow(QMainWindow):
             if self.video_widget._bbox_mode:
                 self.video_widget.set_bbox_mode(False)
                 self.statusBar().showMessage("Tracking cancelled.")
+                return
+            if self.event_tagger._awaiting_dest_id is not None:
+                self.event_tagger.cancel_destination()
+                self.statusBar().showMessage("Destination tagging cancelled.")
                 return
 
         # SPACE — play / pause
@@ -213,6 +229,11 @@ class MainWindow(QMainWindow):
         if Qt.Key_1 <= key <= Qt.Key_9:
             num = key - Qt.Key_0
             self._select_player_by_number(num)
+            return
+
+        # Ctrl+A — AI detect
+        if key == Qt.Key_A and mods & Qt.ControlModifier:
+            self._run_auto_detect()
             return
 
         # H — heatmap
@@ -512,6 +533,47 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(
                 "Calibration complete — pitch coordinates are now active."
             )
+
+    @pyqtSlot(str)
+    def _on_destination_awaiting(self, event_type: str):
+        self.statusBar().showMessage(
+            f"DESTINATION: Click where the {event_type} was received  —  Esc to skip"
+        )
+
+    @pyqtSlot(dict)
+    def _on_destination_set(self, event: dict):
+        self.statusBar().showMessage(
+            f"{event.get('event_type', 'Event').title()} destination recorded."
+        )
+
+    def _run_auto_detect(self):
+        if self._last_frame is None:
+            QMessageBox.warning(self, "No Video", "Load a video first.")
+            return
+        self.statusBar().showMessage("AI detection running…")
+        try:
+            result = self.auto_tagger.detect(self._last_frame)
+        except RuntimeError as e:
+            QMessageBox.critical(self, "AI Detection Error", str(e))
+            return
+        except Exception as e:
+            QMessageBox.critical(self, "AI Detection Error", str(e))
+            return
+
+        players = result["players"]
+        ball    = result["ball"]
+        self.video_widget.update_detections(players, ball)
+
+        # Auto-set click location to ball centre if detected
+        if ball is not None:
+            bx, by, bw, bh, _ = ball
+            self.event_tagger.set_click_coords(bx + bw / 2, by + bh / 2)
+            msg = f"Detected {len(players)} player(s) + ball — click location set to ball. Press a tag key to record."
+        else:
+            msg = f"Detected {len(players)} player(s). No ball found."
+
+        self.statusBar().showMessage(msg, 6000)
+        self.setFocus()
 
     def closeEvent(self, event):
         self.video_player.release()

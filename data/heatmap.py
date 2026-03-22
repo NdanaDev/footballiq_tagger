@@ -130,11 +130,32 @@ class HeatmapGenerator:
         fig, ax = pitch.draw(figsize=(10, 6.5))
         fig.patch.set_facecolor("#1a1a1a")
 
-        # Simple: plot pass origin dots (destination tagging not yet implemented)
-        xs = [e["pitch_x"] for e in events if e.get("pitch_x") is not None]
-        ys = [e["pitch_y"] for e in events if e.get("pitch_y") is not None]
-        if xs:
-            pitch.scatter(xs, ys, ax=ax, s=80, color="cyan", alpha=0.8, zorder=3)
+        # Split events into those with a destination (arrows) and those without (dots)
+        arrow_events = [
+            e for e in events
+            if e.get("pitch_x") is not None and e.get("dest_pitch_x") is not None
+        ]
+        dot_events = [
+            e for e in events
+            if e.get("pitch_x") is not None and e.get("dest_pitch_x") is None
+        ]
+
+        if arrow_events:
+            pitch.arrows(
+                [e["pitch_x"] for e in arrow_events],
+                [e["pitch_y"] for e in arrow_events],
+                [e["dest_pitch_x"] for e in arrow_events],
+                [e["dest_pitch_y"] for e in arrow_events],
+                ax=ax, color="cyan", width=1.5, headwidth=4, headlength=4,
+                alpha=0.8, zorder=3,
+            )
+
+        if dot_events:
+            pitch.scatter(
+                [e["pitch_x"] for e in dot_events],
+                [e["pitch_y"] for e in dot_events],
+                ax=ax, s=80, color="cyan", alpha=0.6, zorder=3,
+            )
 
         ax.set_title("Pass Map", color="white", fontsize=13)
         return fig

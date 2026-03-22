@@ -12,6 +12,7 @@ class Database(QObject):
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._create_schema()
+        self._migrate_schema()
 
     def _create_schema(self):
         with self._lock:
@@ -63,6 +64,22 @@ class Database(QObject):
             """)
             self._conn.commit()
 
+    def _migrate_schema(self):
+        """Add columns introduced after initial schema — safe to run on existing DBs."""
+        new_cols = [
+            ("events", "dest_video_x", "REAL"),
+            ("events", "dest_video_y", "REAL"),
+            ("events", "dest_pitch_x", "REAL"),
+            ("events", "dest_pitch_y", "REAL"),
+        ]
+        with self._lock:
+            for table, col, col_type in new_cols:
+                try:
+                    self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+                except sqlite3.OperationalError:
+                    pass  # column already exists
+            self._conn.commit()
+
     # ── Match ──────────────────────────────────────────────────────────────
 
     def create_match(self, name, home_team="", away_team="", date=None):
@@ -106,13 +123,34 @@ class Database(QObject):
             cur = self._conn.execute(
                 """INSERT INTO events
                    (match_id, player_id, event_type, timestamp, frame_number,
-                    video_x, video_y, pitch_x, pitch_y, outcome)
+                    video_x, video_y, pitch_x, pitch_y, outcome,
+                    dest_video_x, dest_video_y, dest_pitch_x, dest_pitch_y)
                    VALUES (:match_id,:player_id,:event_type,:timestamp,:frame_number,
-                           :video_x,:video_y,:pitch_x,:pitch_y,:outcome)""",
-                event
+                           :video_x,:video_y,:pitch_x,:pitch_y,:outcome,
+                           :dest_video_x,:dest_video_y,:dest_pitch_x,:dest_pitch_y)""",
+                {**event,
+                 "dest_video_x": event.get("dest_video_x"),
+                 "dest_video_y": event.get("dest_video_y"),
+                 "dest_pitch_x": event.get("dest_pitch_x"),
+                 "dest_pitch_y": event.get("dest_pitch_y")}
             )
             self._conn.commit()
             return cur.lastrowid
+
+    def update_event_destination(self, event_id: int,
+                                 dest_video_x: float, dest_video_y: float,
+                                 dest_pitch_x: float, dest_pitch_y: float):
+        """Set the destination coords on an already-saved pass/cross event."""
+        with self._lock:
+            self._conn.execute(
+                """UPDATE events SET
+                   dest_video_x=?, dest_video_y=?, dest_pitch_x=?, dest_pitch_y=?
+                   WHERE id=?""",
+                (dest_video_x, dest_video_y, dest_pitch_x, dest_pitch_y, event_id)
+            )
+            self._conn.commit()
+            row = self._conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+            return dict(row) if row else {}
 
     def delete_event(self, event_id: int):
         with self._lock:

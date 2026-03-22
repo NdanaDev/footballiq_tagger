@@ -52,6 +52,10 @@ class VideoWidget(QLabel):
         self._tracking_boxes  = {}   # {player_id: (x, y, w, h)} frame coords
         self._tracking_labels = {}   # {player_id: str}
 
+        # YOLO detection overlay
+        self._detection_players = []  # [(x, y, w, h, conf), ...]
+        self._detection_ball    = None  # (x, y, w, h, conf) or None
+
         self.setText("No video loaded\nFile → Open Video")
         self.setStyleSheet(
             "background-color: #1a1a1a; color: #555555; font-size: 16px;"
@@ -91,6 +95,17 @@ class VideoWidget(QLabel):
         """boxes: {player_id: (x, y, w, h)} in frame coords."""
         self._tracking_boxes  = boxes
         self._tracking_labels = labels or {}
+        self.update()
+
+    def update_detections(self, players: list, ball):
+        """Show YOLO detection overlay. Pass empty list / None to clear."""
+        self._detection_players = players or []
+        self._detection_ball    = ball
+        self.update()
+
+    def clear_detections(self):
+        self._detection_players = []
+        self._detection_ball    = None
         self.update()
 
     # ── Mouse events ───────────────────────────────────────────────────────
@@ -149,6 +164,7 @@ class VideoWidget(QLabel):
         if self._calibration_mode:
             self._draw_calibration_overlay(painter)
         self._draw_tracking_overlay(painter)
+        self._draw_detection_overlay(painter)
         painter.end()
 
     def _draw_calibration_overlay(self, painter):
@@ -223,6 +239,45 @@ class VideoWidget(QLabel):
             label = self._tracking_labels.get(player_id, f"P{player_id}")
             painter.setPen(color)
             painter.drawText(int(wx) + 2, int(wy) - 5, label)
+
+    def _draw_detection_overlay(self, painter):
+        if not self._detection_players and self._detection_ball is None:
+            return
+
+        label_font = QFont()
+        label_font.setPixelSize(11)
+        painter.setFont(label_font)
+
+        # Player boxes — green dashed
+        player_color = QColor("#69F0AE")
+        pen = QPen(player_color, 2, Qt.DashLine)
+        for x, y, w, h, conf in self._detection_players:
+            wx, wy = self._frame_to_widget(x, y)
+            if wx is None:
+                continue
+            pw = self.pixmap().width()
+            ph = self.pixmap().height()
+            ww = w * pw / self._frame_width
+            wh = h * ph / self._frame_height
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(int(wx), int(wy), int(ww), int(wh))
+            painter.setPen(player_color)
+            painter.drawText(int(wx) + 2, int(wy) - 4, f"{conf:.0%}")
+
+        # Ball — yellow filled circle
+        if self._detection_ball is not None:
+            bx, by, bw, bh, conf = self._detection_ball
+            cx, cy = bx + bw / 2, by + bh / 2
+            wx, wy = self._frame_to_widget(cx, cy)
+            if wx is not None:
+                ball_color = QColor("#FFD700")
+                painter.setPen(QPen(ball_color, 2))
+                painter.setBrush(ball_color)
+                painter.drawEllipse(int(wx) - 8, int(wy) - 8, 16, 16)
+                painter.setPen(QColor("black"))
+                painter.setFont(label_font)
+                painter.drawText(int(wx) + 12, int(wy) + 4, f"ball {conf:.0%}")
 
     # ── Coordinate helpers ─────────────────────────────────────────────────
 
