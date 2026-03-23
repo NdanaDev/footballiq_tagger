@@ -164,6 +164,9 @@ class Sidebar(QWidget):
                 self.event_list.takeItem(i)
                 break
 
+    def clear_events(self):
+        self.event_list.clear()
+
     def set_match_info(self, name, home, away):
         self.match_label.setText(f"{name}\n{home} vs {away}")
 

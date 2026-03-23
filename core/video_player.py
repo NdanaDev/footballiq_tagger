@@ -6,10 +6,11 @@ from PyQt5.QtWidgets import QMessageBox
 
 
 class VideoPlayer(QObject):
-    frame_changed     = pyqtSignal(np.ndarray)   # current BGR frame
-    timestamp_changed = pyqtSignal(float)         # seconds elapsed
-    video_paused      = pyqtSignal()
-    video_loaded      = pyqtSignal(float, int)    # duration_seconds, total_frames
+    frame_changed        = pyqtSignal(np.ndarray)   # current BGR frame
+    timestamp_changed    = pyqtSignal(float)         # seconds elapsed
+    frame_number_changed = pyqtSignal(int)           # current frame index
+    video_paused         = pyqtSignal()
+    video_loaded         = pyqtSignal(float, int)    # duration_seconds, total_frames
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -109,6 +110,7 @@ class VideoPlayer(QObject):
         timestamp = self.current_frame_number / self.fps
         self.frame_changed.emit(frame)
         self.timestamp_changed.emit(timestamp)
+        self.frame_number_changed.emit(self.current_frame_number)
 
     def _emit_current_frame(self):
         if not self.cap:
@@ -118,6 +120,7 @@ class VideoPlayer(QObject):
             timestamp = self.current_frame_number / self.fps
             self.frame_changed.emit(frame)
             self.timestamp_changed.emit(timestamp)
+            self.frame_number_changed.emit(self.current_frame_number)
             # Seek back so the frame isn't consumed
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, self.current_frame_number)
 

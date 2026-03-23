@@ -142,6 +142,7 @@ class MainWindow(QMainWindow):
         self.video_player.frame_changed.connect(self.video_widget.display_frame)
         self.video_player.timestamp_changed.connect(self.sidebar.update_timestamp)
         self.video_player.timestamp_changed.connect(self.event_tagger.update_timestamp)
+        self.video_player.frame_number_changed.connect(self.event_tagger.update_frame_number)
 
         # VideoWidget → EventTagger / calibration / tracking
         self.video_widget.click_coords.connect(self.event_tagger.set_click_coords)
@@ -296,6 +297,7 @@ class MainWindow(QMainWindow):
                 self.sidebar.set_match_info(match["name"], match["home_team"], match["away_team"])
                 players = self.database.get_players(match["id"])
                 self.sidebar.load_players(players)
+                self.sidebar.clear_events()
                 events = self.database.get_all_events(match["id"])
                 for e in events:
                     self.sidebar.add_event(e)
