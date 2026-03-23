@@ -66,7 +66,7 @@ class Database(QObject):
             self._conn.commit()
 
     def _migrate_schema(self):
-        """Add columns introduced after initial schema — safe to run on existing DBs."""
+        """Add columns/tables introduced after initial schema — safe to run on existing DBs."""
         new_cols = [
             ("events", "dest_video_x", "REAL"),
             ("events", "dest_video_y", "REAL"),
@@ -79,6 +79,17 @@ class Database(QObject):
                     self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
                 except sqlite3.OperationalError:
                     pass  # column already exists
+            self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS calibrations (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    video_path TEXT UNIQUE NOT NULL,
+                    p0x REAL, p0y REAL,
+                    p1x REAL, p1y REAL,
+                    p2x REAL, p2y REAL,
+                    p3x REAL, p3y REAL,
+                    saved_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             self._conn.commit()
 
     # ── Match ──────────────────────────────────────────────────────────────
@@ -193,6 +204,44 @@ class Database(QObject):
                     "SELECT pitch_x, pitch_y FROM tracking WHERE player_id=?", (player_id,)
                 ).fetchall()
             return [(r["pitch_x"], r["pitch_y"]) for r in rows]
+
+    # ── Calibration ────────────────────────────────────────────────────────
+
+    def save_calibration(self, video_path: str, points: list):
+        """Persist the 4 calibration points for a video file, replacing any prior entry."""
+        p = points
+        with self._lock:
+            self._conn.execute(
+                """INSERT INTO calibrations
+                       (video_path, p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y)
+                   VALUES (?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(video_path) DO UPDATE SET
+                       p0x=excluded.p0x, p0y=excluded.p0y,
+                       p1x=excluded.p1x, p1y=excluded.p1y,
+                       p2x=excluded.p2x, p2y=excluded.p2y,
+                       p3x=excluded.p3x, p3y=excluded.p3y,
+                       saved_at=CURRENT_TIMESTAMP""",
+                (video_path,
+                 p[0][0], p[0][1], p[1][0], p[1][1],
+                 p[2][0], p[2][1], p[3][0], p[3][1])
+            )
+            self._conn.commit()
+
+    def get_calibration(self, video_path: str):
+        """Return the 4 saved calibration points for a video, or None if not found."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT p0x,p0y,p1x,p1y,p2x,p2y,p3x,p3y FROM calibrations WHERE video_path=?",
+                (video_path,)
+            ).fetchone()
+        if row is None:
+            return None
+        return [
+            (row["p0x"], row["p0y"]),
+            (row["p1x"], row["p1y"]),
+            (row["p2x"], row["p2y"]),
+            (row["p3x"], row["p3y"]),
+        ]
 
     def close(self):
         self._conn.close()

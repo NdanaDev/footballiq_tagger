@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.event_tagger = EventTagger(self.pitch_mapper, self.database)
 
         self._current_match_id    = None
+        self._video_path          = None
         self._calib_points        = []   # accumulates (frame_x, frame_y) during calibration
         self.player_tracker       = PlayerTracker()
         self.auto_tagger          = AutoTagger()
@@ -321,9 +322,20 @@ class MainWindow(QMainWindow):
             "Video Files (*.mp4 *.avi *.mov *.mkv);;All Files (*)"
         )
         if path:
+            self._video_path = path
             self.video_player.load_video(path)
             self.setWindowTitle(f"FootballIQ Tagger — {os.path.basename(path)}")
+            self._restore_calibration(path)
         self.setFocus()
+
+    def _restore_calibration(self, video_path: str):
+        points = self.database.get_calibration(video_path)
+        if points:
+            self.pitch_mapper.calibrate(points)
+            self.sidebar.set_calibration_status(True)
+            self.statusBar().showMessage(
+                "Calibration restored from previous session.", 4000
+            )
 
     def _add_player_dialog(self):
         if self._current_match_id is None:
@@ -537,7 +549,15 @@ class MainWindow(QMainWindow):
             )
         else:
             self.video_widget.set_calibration_mode(False)
-            self.pitch_mapper.calibrate(self._calib_points)
+            try:
+                self.pitch_mapper.calibrate(self._calib_points)
+            except ValueError as e:
+                self._calib_points = []
+                self.sidebar.set_calibration_status(False)
+                QMessageBox.warning(self, "Calibration Failed", str(e))
+                return
+            if self._video_path:
+                self.database.save_calibration(self._video_path, self._calib_points)
             self._calib_points = []
             self.sidebar.set_calibration_status(True)
             self.statusBar().showMessage(
@@ -605,12 +625,19 @@ class NewMatchDialog(QDialog):
         layout.addRow("Home Team:",  self._home)
         layout.addRow("Away Team:",  self._away)
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.accepted.connect(self.accept)
+        btns.accepted.connect(self._validate)
         btns.rejected.connect(self.reject)
         layout.addRow(btns)
 
+    def _validate(self):
+        if not self._name.text().strip():
+            QMessageBox.warning(self, "Invalid Input", "Match name cannot be empty.")
+            self._name.setFocus()
+            return
+        self.accept()
+
     def values(self):
-        return self._name.text(), self._home.text(), self._away.text()
+        return self._name.text().strip(), self._home.text().strip(), self._away.text().strip()
 
 
 class LoadMatchDialog(QDialog):
@@ -653,13 +680,22 @@ class AddPlayerDialog(QDialog):
         layout.addRow("Number:", self._number)
         layout.addRow("Team:",   self._team)
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.accepted.connect(self.accept)
+        btns.accepted.connect(self._validate)
         btns.rejected.connect(self.reject)
         layout.addRow(btns)
 
-    def values(self):
+    def _validate(self):
+        if not self._name.text().strip():
+            QMessageBox.warning(self, "Invalid Input", "Player name cannot be empty.")
+            self._name.setFocus()
+            return
         try:
-            number = int(self._number.text())
+            int(self._number.text())
         except ValueError:
-            number = 0
-        return self._name.text(), number, self._team.text()
+            QMessageBox.warning(self, "Invalid Input", "Jersey number must be a whole number.")
+            self._number.setFocus()
+            return
+        self.accept()
+
+    def values(self):
+        return self._name.text().strip(), int(self._number.text()), self._team.text().strip()

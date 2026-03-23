@@ -43,11 +43,15 @@ class HeatmapGenerator:
         fig, ax = pitch.draw(figsize=(10, 6.5))
         fig.patch.set_facecolor("#1a1a1a")
 
-        if positions:
-            xs = np.array([p[0] for p in positions if p[0] is not None])
-            ys = np.array([p[1] for p in positions if p[1] is not None])
-            if len(xs) >= 3:
-                pitch.kdeplot(xs, ys, ax=ax, cmap="hot", fill=True, levels=100, alpha=0.7)
+        xs = np.array([p[0] for p in positions if p[0] is not None])
+        ys = np.array([p[1] for p in positions if p[1] is not None])
+
+        if len(xs) >= 3:
+            pitch.kdeplot(xs, ys, ax=ax, cmap="hot", fill=True, levels=100, alpha=0.7)
+        else:
+            msg = "No tracking data" if len(xs) == 0 else f"Not enough data ({len(xs)} point{'s' if len(xs) != 1 else ''} — need ≥ 3)"
+            ax.text(60, 40, msg, ha="center", va="center",
+                    color="#888888", fontsize=13, transform=ax.transData)
 
         ax.set_title(title, color="white", fontsize=13, pad=10)
         return fig
@@ -109,7 +113,13 @@ class HeatmapGenerator:
                 ax=ax, s=180, color="#FFD700", marker="*", zorder=4, label="Goal"
             )
 
-        ax.legend(facecolor="#2a2a2a", labelcolor="white", loc="upper left")
+        if not shots and not goals:
+            ax.text(60, 40, "No shots or goals tagged for this selection",
+                    ha="center", va="center", color="#888888", fontsize=13,
+                    transform=ax.transData)
+        else:
+            ax.legend(facecolor="#2a2a2a", labelcolor="white", loc="upper left")
+
         ax.set_title(title, color="white", fontsize=13, pad=10)
         return fig
 
@@ -156,6 +166,11 @@ class HeatmapGenerator:
                 [e["pitch_y"] for e in dot_events],
                 ax=ax, s=80, color="cyan", alpha=0.6, zorder=3,
             )
+
+        if not arrow_events and not dot_events:
+            ax.text(60, 40, "No passes tagged for this selection",
+                    ha="center", va="center", color="#888888", fontsize=13,
+                    transform=ax.transData)
 
         ax.set_title("Pass Map", color="white", fontsize=13)
         return fig

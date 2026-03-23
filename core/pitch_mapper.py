@@ -37,10 +37,36 @@ class PitchMapper:
         """
         Compute homography from 4 pixel points to pitch corners.
         src_points: list/array of 4 (x, y) tuples in pixel space.
+        Raises ValueError if the points are degenerate or the homography cannot be computed.
         """
         src = np.float32(src_points)
+        if not self._is_valid_quad(src):
+            raise ValueError(
+                "Calibration points do not form a valid quadrilateral.\n"
+                "Make sure the four corners are distinct and not collinear."
+            )
         dst = PITCH_CORNERS
-        self._matrix, _ = cv2.findHomography(src, dst)
+        matrix, _ = cv2.findHomography(src, dst)
+        if matrix is None or not np.isfinite(matrix).all():
+            raise ValueError(
+                "Could not compute a valid homography from these points.\n"
+                "Try selecting corners that are more spread out across the pitch."
+            )
+        self._matrix = matrix
+
+    @staticmethod
+    def _is_valid_quad(pts: np.ndarray) -> bool:
+        """Return True if pts forms a convex, non-degenerate quadrilateral."""
+        cross_products = []
+        n = len(pts)
+        for i in range(n):
+            edge1 = pts[(i + 1) % n] - pts[i]
+            edge2 = pts[(i + 2) % n] - pts[(i + 1) % n]
+            cross = float(edge1[0] * edge2[1] - edge1[1] * edge2[0])
+            cross_products.append(cross)
+        if any(abs(c) < 1e-6 for c in cross_products):
+            return False  # collinear consecutive triplet
+        return all(c > 0 for c in cross_products) or all(c < 0 for c in cross_products)
 
     def transform(self, video_x: float, video_y: float):
         """
