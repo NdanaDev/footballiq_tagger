@@ -106,7 +106,7 @@ class Database(QObject):
 
     def get_matches(self):
         with self._lock:
-            rows = self._conn.execute("SELECT * FROM matches ORDER BY created_at DESC").fetchall()
+            rows = self._conn.execute("SELECT * FROM matches ORDER BY created_at DESC, id DESC").fetchall()
             return [dict(r) for r in rows]
 
     # ── Players ────────────────────────────────────────────────────────────
