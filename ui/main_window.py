@@ -192,16 +192,16 @@ class MainWindow(QMainWindow):
 
         # Esc — cancel calibration, bbox draw, or destination tagging
         if key == Qt.Key_Escape:
-            if self.video_widget._calibration_mode:
+            if self.video_widget.calibration_mode:
                 self.video_widget.set_calibration_mode(False)
                 self._calib_points = []
                 self.statusBar().showMessage("Calibration cancelled.")
                 return
-            if self.video_widget._bbox_mode:
+            if self.video_widget.bbox_mode:
                 self.video_widget.set_bbox_mode(False)
                 self.statusBar().showMessage("Tracking cancelled.")
                 return
-            if self.event_tagger._awaiting_dest_id is not None:
+            if self.event_tagger.awaiting_destination:
                 self.event_tagger.cancel_destination()
                 self.statusBar().showMessage("Destination tagging cancelled.")
                 return
@@ -225,7 +225,7 @@ class MainWindow(QMainWindow):
                 self.video_player.seek_relative(5.0)
             return
 
-        # Number keys 1–11 — select player by number
+        # Number keys 1–9 — select player by number
         if Qt.Key_1 <= key <= Qt.Key_9:
             num = key - Qt.Key_0
             self._select_player_by_number(num)
@@ -266,7 +266,7 @@ class MainWindow(QMainWindow):
             if self._current_match_id is None:
                 QMessageBox.warning(self, "No Match", "Create a match first (File → New Match).")
                 return
-            if self.pitch_mapper.is_calibrated and self.event_tagger._click_x is None:
+            if self.pitch_mapper.is_calibrated and not self.event_tagger.has_click_location:
                 self.statusBar().showMessage(
                     "⚠  No pitch location — click on the video first, then press the key.", 4000
                 )
@@ -297,7 +297,7 @@ class MainWindow(QMainWindow):
                 players = self.database.get_players(match["id"])
                 self.sidebar.load_players(players)
                 events = self.database.get_all_events(match["id"])
-                for e in reversed(events):
+                for e in events:
                     self.sidebar.add_event(e)
                 self.statusBar().showMessage(f"Loaded: {match['name']}")
         self.setFocus()
@@ -398,7 +398,7 @@ class MainWindow(QMainWindow):
             return
         try:
             from data.heatmap import HeatmapGenerator
-            player_id = self.event_tagger._active_player_id
+            player_id = self.event_tagger.active_player_id
             gen = HeatmapGenerator(self.database)
             gen.show_pass_map(self._current_match_id, player_id)
         except Exception as e:
@@ -425,7 +425,7 @@ class MainWindow(QMainWindow):
             return
         try:
             from data.heatmap import HeatmapGenerator
-            player_id = self.event_tagger._active_player_id
+            player_id = self.event_tagger.active_player_id
             gen = HeatmapGenerator(self.database)
             gen.show_shot_map(self._current_match_id, player_id)
         except Exception as e:
@@ -438,7 +438,7 @@ class MainWindow(QMainWindow):
             return
         try:
             from data.heatmap import HeatmapGenerator
-            player_id = self.event_tagger._active_player_id
+            player_id = self.event_tagger.active_player_id
             gen = HeatmapGenerator(self.database)
             gen.show_heatmap(self._current_match_id, player_id)
         except Exception as e:
@@ -475,11 +475,12 @@ class MainWindow(QMainWindow):
                     video_x=x + w / 2,
                     video_y=y + h / 2,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                import warnings
+                warnings.warn(f"Tracking position save failed for player {player_id}: {e}")
 
     def _start_bbox_draw(self):
-        player_id = self.event_tagger._active_player_id
+        player_id = self.event_tagger.active_player_id
         if player_id is None:
             QMessageBox.warning(self, "No Player", "Select a player first.")
             return
@@ -494,13 +495,13 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(int, int, int, int)
     def _on_bbox_drawn(self, x: int, y: int, w: int, h: int):
-        player_id = self.event_tagger._active_player_id
+        player_id = self.event_tagger.active_player_id
         if player_id is None or self._last_frame is None:
             return
         self.player_tracker.add(player_id, self._last_frame, (x, y, w, h))
         self._rebuild_tracking_labels()
         self.video_widget.update_tracking_boxes(
-            {pid: self.player_tracker._boxes[pid] for pid in self.player_tracker.active_ids},
+            {pid: self.player_tracker.get_box(pid) for pid in self.player_tracker.active_ids},
             self._tracking_labels,
         )
         self.sidebar.set_tracking_status(self.player_tracker.active_ids)

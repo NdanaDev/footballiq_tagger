@@ -75,6 +75,16 @@ class VideoWidget(QLabel):
         )
         self.setPixmap(scaled)
 
+    # ── Public state accessors ─────────────────────────────────────────────
+
+    @property
+    def calibration_mode(self) -> bool:
+        return self._calibration_mode
+
+    @property
+    def bbox_mode(self) -> bool:
+        return self._bbox_mode
+
     # ── Calibration mode ───────────────────────────────────────────────────
 
     def set_calibration_mode(self, active: bool):

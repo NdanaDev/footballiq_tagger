@@ -1,4 +1,5 @@
 import cv2
+import math
 import numpy as np
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QMessageBox
@@ -32,7 +33,8 @@ class VideoPlayer(QObject):
             self.cap = None
             return False
 
-        self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 25.0
+        raw_fps = self.cap.get(cv2.CAP_PROP_FPS)
+        self.fps = raw_fps if raw_fps and math.isfinite(raw_fps) and raw_fps > 0 else 25.0
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self._is_paused = True
         self.current_frame_number = 0

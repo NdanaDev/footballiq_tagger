@@ -106,7 +106,7 @@ class Sidebar(QWidget):
             ("─────────────",       "#444444"),
             ("[Space]  Play / Pause",   "#e0e0e0"),
             ("[←/→]  Seek ±5s",        "#e0e0e0"),
-            ("[Shift+←/→]  Step frame","e0e0e0"),
+            ("[Shift+←/→]  Step frame","#e0e0e0"),
             ("─────────────",       "#444444"),
             ("[Ctrl+C]  Calibrate",     "#00E5FF"),
             ("[Ctrl+T]  Track player",  "#00E5FF"),

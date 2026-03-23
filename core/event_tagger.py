@@ -30,6 +30,20 @@ class EventTagger(QObject):
         # Destination state — set after tagging a pass/cross
         self._awaiting_dest_id    = None   # row id of event waiting for destination
 
+    # ── Public state accessors ─────────────────────────────────────────────
+
+    @property
+    def active_player_id(self):
+        return self._active_player_id
+
+    @property
+    def awaiting_destination(self) -> bool:
+        return self._awaiting_dest_id is not None
+
+    @property
+    def has_click_location(self) -> bool:
+        return self._click_x is not None
+
     # ── Slots from other modules ───────────────────────────────────────────
 
     @pyqtSlot(float)

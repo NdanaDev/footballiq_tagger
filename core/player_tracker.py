@@ -153,6 +153,10 @@ class PlayerTracker:
     def is_empty(self):
         return len(self._trackers) == 0
 
+    def get_box(self, player_id):
+        """Return the last known bounding box (x, y, w, h) for a tracked player."""
+        return self._boxes[player_id]
+
     # ── internal helpers ─────────────────────────────────────────────────────
 
     def _csrt_update(self, frame):
