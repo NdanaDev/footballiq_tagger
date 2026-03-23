@@ -128,6 +128,10 @@ class MainWindow(QMainWindow):
         act_shotmap.triggered.connect(self._show_shot_map)
         analytics_menu.addAction(act_shotmap)
 
+        act_stats = QAction("Player Stats (R)", self)
+        act_stats.triggered.connect(self._show_stats)
+        analytics_menu.addAction(act_stats)
+
         analytics_menu.addSeparator()
 
         act_ai = QAction("AI Detect Players/Ball (Ctrl+A)", self)
@@ -272,6 +276,11 @@ class MainWindow(QMainWindow):
         # N — shot map
         if key == Qt.Key_N and not mods:
             self._show_shot_map()
+            return
+
+        # R — player stats
+        if key == Qt.Key_R and not mods:
+            self._show_stats()
             return
 
         # E — export CSV
@@ -465,6 +474,25 @@ class MainWindow(QMainWindow):
             gen.show_shot_map(self._current_match_id, player_id)
         except Exception as e:
             QMessageBox.critical(self, "Shot Map Error", str(e))
+        self.setFocus()
+
+    def _show_stats(self):
+        if self._current_match_id is None:
+            QMessageBox.warning(self, "No Match", "No active match.")
+            return
+        try:
+            from ui.stats_dialog import StatsDialog
+            players = self.database.get_players(self._current_match_id)
+            dlg = StatsDialog(
+                self.database,
+                self._current_match_id,
+                players,
+                initial_player_id=self.event_tagger.active_player_id,
+                parent=self,
+            )
+            dlg.exec_()
+        except Exception as e:
+            QMessageBox.critical(self, "Stats Error", str(e))
         self.setFocus()
 
     def _show_heatmap(self):
