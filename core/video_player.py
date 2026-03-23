@@ -9,6 +9,7 @@ class VideoPlayer(QObject):
     frame_changed        = pyqtSignal(np.ndarray)   # current BGR frame
     timestamp_changed    = pyqtSignal(float)         # seconds elapsed
     frame_number_changed = pyqtSignal(int)           # current frame index
+    video_playing        = pyqtSignal()
     video_paused         = pyqtSignal()
     video_loaded         = pyqtSignal(float, int)    # duration_seconds, total_frames
 
@@ -53,6 +54,7 @@ class VideoPlayer(QObject):
             self._is_paused = False
             interval = max(1, int(1000 / self.fps))
             self.timer.start(interval)
+            self.video_playing.emit()
 
     def pause(self):
         if not self._is_paused:

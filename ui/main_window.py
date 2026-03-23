@@ -1,10 +1,10 @@
 import os
 import numpy as np
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout, QFileDialog,
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QFileDialog,
     QMenuBar, QAction, QInputDialog, QMessageBox,
     QDialog, QFormLayout, QLineEdit, QDialogButtonBox, QLabel,
-    QListWidget, QListWidgetItem, QVBoxLayout, QComboBox, QPushButton
+    QListWidget, QListWidgetItem, QComboBox, QPushButton
 )
 from PyQt5.QtCore import Qt, pyqtSlot
 
@@ -16,6 +16,7 @@ from core.auto_tagger    import AutoTagger
 from data.database       import Database
 from ui.video_widget     import VideoWidget
 from ui.sidebar          import Sidebar
+from ui.scrubber         import VideoScrubber
 
 
 KEY_EVENT_MAP = {
@@ -54,14 +55,24 @@ class MainWindow(QMainWindow):
         # ── UI ───────────────────────────────────────────────────────────
         central = QWidget()
         self.setCentralWidget(central)
-        layout = QHBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        root_layout = QHBoxLayout(central)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Left column: video + scrubber stacked vertically
+        video_panel = QWidget()
+        video_layout = QVBoxLayout(video_panel)
+        video_layout.setContentsMargins(0, 0, 0, 0)
+        video_layout.setSpacing(0)
 
         self.video_widget = VideoWidget()
-        self.sidebar      = Sidebar()
-        layout.addWidget(self.video_widget, stretch=1)
-        layout.addWidget(self.sidebar)
+        self.scrubber     = VideoScrubber()
+        video_layout.addWidget(self.video_widget, stretch=1)
+        video_layout.addWidget(self.scrubber)
+
+        self.sidebar = Sidebar()
+        root_layout.addWidget(video_panel, stretch=1)
+        root_layout.addWidget(self.sidebar)
 
         self._build_menu()
         self._connect_signals()
@@ -144,6 +155,16 @@ class MainWindow(QMainWindow):
         self.video_player.timestamp_changed.connect(self.sidebar.update_timestamp)
         self.video_player.timestamp_changed.connect(self.event_tagger.update_timestamp)
         self.video_player.frame_number_changed.connect(self.event_tagger.update_frame_number)
+
+        # VideoPlayer → Scrubber
+        self.video_player.video_loaded.connect(self.scrubber.set_duration)
+        self.video_player.frame_number_changed.connect(self.scrubber.set_position)
+        self.video_player.video_playing.connect(lambda: self.scrubber.set_paused(False))
+        self.video_player.video_paused.connect(lambda: self.scrubber.set_paused(True))
+
+        # Scrubber → VideoPlayer
+        self.scrubber.seek_requested.connect(self.video_player.seek)
+        self.scrubber.play_pause_clicked.connect(self.video_player.toggle_pause)
 
         # VideoWidget → EventTagger / calibration / tracking
         self.video_widget.click_coords.connect(self.event_tagger.set_click_coords)
