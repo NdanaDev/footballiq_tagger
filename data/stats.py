@@ -2,6 +2,13 @@ EVENT_TYPES = ("pass", "shot", "goal", "cross", "tackle", "dribble", "foul")
 
 
 class StatsGenerator:
+    """
+    Computes per-player and per-match statistics from tagged events.
+
+    All methods return plain dicts so they can be consumed by any UI layer
+    without a coupling to Qt.
+    """
+
     def __init__(self, database):
         self.db = database
 

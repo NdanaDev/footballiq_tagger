@@ -6,10 +6,20 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 
 class HeatmapGenerator:
+    """
+    Generates and displays pitch visualisations (heatmaps, pass maps, shot maps)
+    using mplsoccer and matplotlib, rendered inside a modal QDialog.
+    """
+
     def __init__(self, database):
         self.db = database
 
     def show_heatmap(self, match_id, player_id=None):
+        """
+        Open a position heatmap dialog.
+        If player_id is given, shows only that player's tracking positions;
+        otherwise aggregates all players in the match.
+        """
         if player_id:
             positions = self.db.get_player_positions(player_id, match_id)
             title = f"Player {player_id} — Position Heatmap"
@@ -33,6 +43,11 @@ class HeatmapGenerator:
         plt.close(fig)
 
     def _render(self, positions, title="Heatmap"):
+        """
+        Render a KDE heatmap onto a standard 120×80 m pitch.
+        Requires at least 3 positions to produce a meaningful density estimate;
+        otherwise shows a placeholder message.
+        """
         pitch = Pitch(
             pitch_type="custom",
             pitch_length=120,
@@ -57,6 +72,7 @@ class HeatmapGenerator:
         return fig
 
     def show_pass_map(self, match_id, player_id=None):
+        """Open a pass map dialog showing origin→destination arrows for all tagged passes."""
         player_id = player_id or None
         title = f"Player {player_id} — Pass Map" if player_id else "All Players — Pass Map"
         fig = self.generate_pass_map(match_id, player_id)
@@ -71,6 +87,7 @@ class HeatmapGenerator:
         plt.close(fig)
 
     def show_shot_map(self, match_id, player_id=None):
+        """Open a shot map dialog; shots are red circles, goals are gold stars."""
         title = f"Player {player_id} — Shot Map" if player_id else "All Players — Shot Map"
         fig = self._render_shot_map(match_id, player_id, title)
 
@@ -84,6 +101,10 @@ class HeatmapGenerator:
         plt.close(fig)
 
     def _render_shot_map(self, match_id, player_id=None, title="Shot Map"):
+        """
+        Build a matplotlib figure with shots (red) and goals (gold star) scattered
+        at their pitch coordinates.  Events without pitch coords are silently skipped.
+        """
         if player_id:
             events = [e for e in self.db.get_all_events(match_id)
                       if e["event_type"] in ("shot", "goal") and e["player_id"] == player_id]

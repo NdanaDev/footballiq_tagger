@@ -5,17 +5,28 @@ from PyQt5.QtCore import QObject, pyqtSlot
 
 
 class Database(QObject):
+    """
+    SQLite-backed persistence layer for matches, players, events, tracking
+    positions and pitch calibrations.
+
+    A threading.Lock serialises every write so the class is safe to call from
+    the Qt main thread and background workers simultaneously.
+    """
+
     def __init__(self, db_path="footballiq.db"):
         super().__init__()
         self.db_path = db_path
         self._lock = threading.Lock()
+        # check_same_thread=False is intentional — the lock above provides safety
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.execute("PRAGMA foreign_keys = ON")
+        # Return rows as dict-like objects so callers can use column names
         self._conn.row_factory = sqlite3.Row
         self._create_schema()
         self._migrate_schema()
 
     def _create_schema(self):
+        """Create all tables on first run.  Safe to call on an existing database."""
         with self._lock:
             cur = self._conn.cursor()
             cur.executescript("""
@@ -193,6 +204,7 @@ class Database(QObject):
             self._conn.commit()
 
     def get_player_positions(self, player_id, match_id=None):
+        """Return a list of (pitch_x, pitch_y) tuples from the tracking table."""
         with self._lock:
             if match_id:
                 rows = self._conn.execute(

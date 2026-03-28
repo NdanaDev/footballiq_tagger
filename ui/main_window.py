@@ -31,6 +31,14 @@ KEY_EVENT_MAP = {
 
 
 class MainWindow(QMainWindow):
+    """
+    Top-level application window.
+
+    Owns all core objects (VideoPlayer, EventTagger, Database, etc.) and wires
+    their signals together.  The layout is a horizontal split: video+scrubber on
+    the left, Sidebar on the right.
+    """
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("FootballIQ Tagger")
@@ -359,6 +367,7 @@ class MainWindow(QMainWindow):
         self.setFocus()
 
     def _restore_calibration(self, video_path: str):
+        """Re-apply saved calibration points for this video file, if any exist."""
         points = self.database.get_calibration(video_path)
         if points:
             self.pitch_mapper.calibrate(points)
@@ -450,6 +459,7 @@ class MainWindow(QMainWindow):
         self.setFocus()
 
     def _ask_outcome(self, event_type: str):
+        """Prompt for an outcome label (e.g. 'complete'/'incomplete') for events that support it."""
         outcomes = {
             "pass":  ["complete", "incomplete"],
             "shot":  ["on target", "off target", "blocked"],
@@ -523,6 +533,11 @@ class MainWindow(QMainWindow):
                 self._save_tracking_positions(boxes)
 
     def _save_tracking_positions(self, boxes: dict):
+        """
+        Persist the current bounding-box centres to the tracking table.
+        Called every 5 frames to reduce write frequency without losing resolution.
+        Silently skips players whose pitch transform fails (e.g. not calibrated).
+        """
         if self._current_match_id is None:
             return
         for player_id, (x, y, w, h) in boxes.items():
@@ -573,6 +588,7 @@ class MainWindow(QMainWindow):
         )
 
     def _rebuild_tracking_labels(self):
+        """Refresh the player_id → display-label mapping used by the video overlay."""
         if self._current_match_id is None:
             return
         players = self.database.get_players(self._current_match_id)

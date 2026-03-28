@@ -27,6 +27,13 @@ _CARD_STYLE = (
 
 
 class StatsDialog(QDialog):
+    """
+    Modal dialog that displays per-player (or full-match) statistics.
+
+    Contains a player selector combo, summary stat cards for totals/goals/passes/shots,
+    percentage bars for pass-completion and shot-accuracy, and a full event-breakdown table.
+    """
+
     def __init__(self, database, match_id: int, players: list,
                  initial_player_id=None, parent=None):
         super().__init__(parent)
@@ -120,6 +127,7 @@ class StatsDialog(QDialog):
     # ── Internal ────────────────────────────────────────────────────────────
 
     def _refresh(self):
+        """Re-query stats for the currently selected player and update all widgets."""
         player_id = self._combo.currentData()
         stats = self._gen.for_player(self._match_id, player_id)
 

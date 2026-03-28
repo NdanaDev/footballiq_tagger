@@ -7,6 +7,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QColor
 
 
+# Colour used to tint each event type in the log list
 EVENT_COLORS = {
     "pass":    "#4CAF50",
     "shot":    "#F44336",
@@ -19,6 +20,11 @@ EVENT_COLORS = {
 
 
 class Sidebar(QWidget):
+    """
+    Right-hand panel containing match info, the active-player selector,
+    the live timestamp, the event log, status indicators, and keyboard-shortcut hints.
+    """
+
     player_selected = pyqtSignal(object)   # player_id or None
 
     def __init__(self, parent=None):
@@ -172,6 +178,7 @@ class Sidebar(QWidget):
         self.match_label.setText(f"{name}\n{home} vs {away}")
 
     def load_players(self, players: list):
+        """Repopulate the player combo with a fresh list, keeping 'None' as the first entry."""
         self.player_combo.clear()
         self.player_combo.addItem("None", None)
         for p in players:
